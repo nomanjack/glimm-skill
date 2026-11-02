@@ -126,6 +126,27 @@ Router**, or **vanilla JS / other frameworks**, read
 Pages Router in particular must use `glimm/react`, not `glimm/next` (the Next
 adapter is built on `next/navigation`, which is App Router only).
 
+### The change goes inside the sweep
+
+A sweep reveals a change, so the visible change must never come before the
+band. Put the state update or navigation inside the callback you pass to
+`sweep()`, and keep everything it affects inside the swept area. glimm then
+runs it while the band is crossing.
+
+```tsx
+// Right: the new state appears behind the band
+sweep(() => setPublished(true))
+
+// Wrong: the new state is on screen before the band arrives
+setPublished(true)
+sweep(async () => {})
+```
+
+If the result comes from a request, await the request first and call `sweep()`
+when it resolves. A loading state on the pressed button can start right away,
+since it's feedback for the press. Anything that belongs to the result, such
+as a legend, count or badge, changes with the sweep.
+
 ### Sweeping inside a container
 
 When the sweep plays inside one element rather than the whole page (a card,
@@ -191,7 +212,9 @@ Never hand back unverified. Start the dev server and click through two or
 three real navigations, then check:
 
 1. The sweep plays and the new page appears **behind** the band (no flash of
-   unstyled or duplicate content).
+   unstyled or duplicate content). Slow the animation down or step through a
+   recording if it's too fast to tell. Nothing that belongs to the result may
+   be visible before the band reaches it.
 2. The browser console is clean — no glimm warnings, no WebGL errors.
 3. A Cmd/Ctrl-click still opens a new tab with no sweep in the original.
 4. External links and hash links behave as before.
@@ -225,6 +248,7 @@ it in `lagoon`?") beats describing palettes.
 | ------- | ----------- |
 | `useGlimm must be used inside <GlimmProvider>` | Component imports from a different entry point than the provider, or the provider is in a nested layout. One entry point, root layout. |
 | No sweep, instant navigation, no errors | OS has reduced motion enabled, or no WebGL (headless browser, some VMs). This is the designed fallback, not a failure. |
+| New content appears, then the band plays over it | The state changed outside the sweep callback. Move the update into `sweep(() => ...)`. |
 | Sweep plays but the page "jumps" at the end | An old glimm (<0.3.1) without View-Transition masking. `npm install glimm@latest`. |
 | Links to other origins sweep weirdly / break | They shouldn't be intercepted at all — check for a custom `shouldIntercept` that dropped the origin check. |
 | A sweep inside a card or chart ends on a hard edge | The canvas has `feather: 0`, or glimm predates `feather`. Leave `feather` at `'auto'`, or mask the canvas edges in CSS (see references/react-and-vanilla.md). |
