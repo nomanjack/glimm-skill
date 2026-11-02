@@ -5,8 +5,10 @@ A skill for coding agents that adds [glimm](https://glimm.dev) to a project the 
 ## Install
 
 ```bash
-npx skills add nomanjack/glimm-skill
+npx skills@1.5.20 add nomanjack/glimm-skill
 ```
+
+The version is pinned because newer `skills` releases crash on Node below 22.20. This one works on Node 20 and up.
 
 Then ask your agent something like:
 
