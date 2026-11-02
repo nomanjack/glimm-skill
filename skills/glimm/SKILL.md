@@ -1,0 +1,233 @@
+---
+name: glimm
+description: Install, wire, and tune glimm — WebGL color-sweep page transitions — in a web project, with correct setup and honest advice about where it fits. Use whenever the user wants page transitions, route-change animations, navigation that feels more alive or polished, mentions glimm by name, or asks for "view transitions with some color" in a Next.js or React site, even if they never name a library. Also use when customizing an existing glimm install — changing palettes, matching brand colors, adjusting sweep timing or direction, or opting specific links out.
+---
+
+# glimm — color-sweep page transitions
+
+glimm plays a band of WebGL color across the viewport during navigation: the
+outgoing page stays ahead of the band, the incoming page is revealed behind it
+(the iOS "name drop" feel, as a masked page transition). Framework-agnostic
+core with React and Next.js adapters. Zero runtime dependencies, MIT.
+
+This skill works with any glimm version. Before writing code, check which
+version the project resolves (`npm ls glimm`, or the installed
+`node_modules/glimm/package.json`) and treat the installed package as the
+source of truth: confirm each export you use exists in its type definitions
+(`node_modules/glimm/dist/*.d.ts`). If an API below is missing or named
+differently there, follow the installed version and its changelog on
+https://glimm.dev/changelog rather than the recipe. On a fresh install, prefer
+`npm install glimm@latest`.
+
+## Step 1 — Fit check (before touching code)
+
+glimm is a statement, not a default. A sweep takes about a second of the
+user's attention on every navigation, so it earns its place on sites where
+each navigation is a meaningful scene change — and wears out its welcome
+where navigation is a high-frequency tool. Look at the project first
+(framework, router, what kind of site it is) and give an honest verdict:
+
+**Good fits:** marketing sites, portfolios, personal sites, blogs and
+long-form reading, product launch pages, docs with chaptered reading,
+galleries — anywhere a visitor navigates a handful of times per session and
+brand personality matters.
+
+**Poor fits:** admin dashboards, data tables, settings panels, multi-step
+forms mid-flow, search-and-filter UIs, anything a person navigates dozens of
+times an hour. A 1.1 s sweep on every sidebar click becomes friction by the
+third click.
+
+If the project is a poor fit, say so plainly and recommend against installing
+— that honesty is what makes a "yes" trustworthy. If the user wants it
+anyway, respect that, but scope it: shorter timing (`sweepMs: 650`,
+`outroMs: 150`), and sweep only major section changes while opting
+high-frequency links out with `data-glimm-skip` (Step 4).
+
+Accessibility and robustness are not reasons to hesitate: glimm respects
+`prefers-reduced-motion` (navigates instantly) and degrades to plain
+navigation when WebGL is unavailable. Both are automatic — never write your
+own reduced-motion guard around it.
+
+## Step 2 — Install and wire
+
+```bash
+npm install glimm
+```
+
+`react` and `next` are optional peer dependencies — nothing else is pulled in.
+
+### Next.js App Router (the common case)
+
+Mount once in the **root layout**, wrapping the body content:
+
+```tsx
+// app/layout.tsx
+import { GlimmProvider, InterceptLinks } from 'glimm/next'
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <GlimmProvider palette="prism">
+          <InterceptLinks />
+          {children}
+        </GlimmProvider>
+      </body>
+    </html>
+  )
+}
+```
+
+That is the whole install. `<InterceptLinks />` runs every internal link
+click through a sweep automatically — plain `<a>` and `next/link` both work
+unchanged, and it already leaves alone: modifier-clicks, middle-clicks,
+`target="_blank"`, downloads, external origins, and same-page hash links.
+Don't re-implement any of those guards.
+
+Wiring rules that matter, and why:
+
+- **Root layout, not a nested one.** A provider in a nested layout remounts
+  when the user navigates across layout boundaries, killing the shader
+  context mid-flight and dropping the transition.
+- **One entry point per app.** Import everything from `glimm/next` (or, in a
+  non-Next app, everything from `glimm/react`). Mixing entry points creates
+  two React contexts, and `useGlimm()` from one can't see the provider from
+  the other.
+- **The root layout can stay a server component.** `GlimmProvider` and
+  `InterceptLinks` are client components already; importing them does not
+  require `'use client'` in the layout file.
+
+### Per-navigation control (optional, add only where needed)
+
+```tsx
+'use client'
+import { TransitionLink, useTransitionRouter } from 'glimm/next'
+
+// Declarative — a drop-in next/link replacement:
+<TransitionLink href="/work" sweep={{ palette: 'berry', direction: 'rtl' }}>
+  Work
+</TransitionLink>
+
+// Programmatic — for form submits / post-action redirects:
+const router = useTransitionRouter()
+await save(form)
+router.push('/done', { palette: 'ember' })
+```
+
+`TransitionLink` and `InterceptLinks` coexist safely — the link's own handler
+takes the click and the interceptor sees it as already handled, so nothing
+double-fires.
+
+### Other setups
+
+For **React without Next** (Vite + react-router, etc.), **Next Pages
+Router**, or **vanilla JS / other frameworks**, read
+[references/react-and-vanilla.md](references/react-and-vanilla.md) — the
+Pages Router in particular must use `glimm/react`, not `glimm/next` (the Next
+adapter is built on `next/navigation`, which is App Router only).
+
+### Sweeping inside a container
+
+When the sweep plays inside one element rather than the whole page (a card,
+a chart, a table), the band must fade out towards that box's edges — never
+let it end on a hard border. Current glimm does this by default (the
+shader's `feather: 'auto'`); on older versions mask the canvas edges in CSS.
+The recipe is in
+[references/react-and-vanilla.md](references/react-and-vanilla.md#sweeping-inside-a-container).
+
+## Step 3 — Pick a palette with intent
+
+Don't leave the default without looking. Find the project's brand colors
+(CSS custom properties, Tailwind config, design tokens) and choose the preset
+whose hues live nearest to them:
+
+| Preset   | Hues                        | Reads as |
+| -------- | --------------------------- | -------- |
+| `prism`  | cyan → violet → magenta     | iridescent, techy — the default |
+| `berry`  | red-pink → magenta          | warm, bold, editorial |
+| `lagoon` | blue → cyan → green         | cool, calm, natural |
+| `citrus` | green → yellow → orange     | energetic, playful |
+| `azure`  | cyan → blue → violet        | corporate-clean, trustworthy |
+| `ember`  | yellow → orange → red-pink  | hot, urgent, dramatic |
+
+For an exact brand match, build a custom palette from the brand's own hexes:
+
+```tsx
+import { accentChain } from 'glimm/next'  // also exported from glimm/react and glimm
+
+const brand = accentChain(['#7C3AED', '#EC4899'])  // 2–4 stops, in sweep order
+<GlimmProvider palette={brand}>
+```
+
+`accentChain` interpolates the stops in OKLCH (perceptually even, no muddy
+midpoints) and fits the shader's palette to them. On dark sites, add
+`brightness={0.85}` to the provider so the band doesn't bloom against the
+dark background. Deeper tuning — timing, easing, direction, band shape, feel
+recipes — is in [references/tuning.md](references/tuning.md).
+
+## Step 4 — Curate which links sweep
+
+The sweep should mark *scene changes*, not every click. Walk the project's
+nav and opt out anything high-frequency or intra-scene with
+`data-glimm-skip`:
+
+- pagination, table sorting, filters
+- tab switches within a page
+- footer utility links (privacy, terms)
+- anything that opens in a modal or drawer rather than a new scene
+
+```tsx
+<Link href="/work?page=2" data-glimm-skip>Next page</Link>
+```
+
+Primary navigation (header links, cards into detail pages, prominent CTAs)
+keeps the sweep. If after curation only two or three links would sweep,
+reconsider `InterceptLinks` entirely and use explicit `<TransitionLink>` on
+just those — intent-revealing beats blanket-plus-exceptions.
+
+## Step 5 — Verify it works
+
+Never hand back unverified. Start the dev server and click through two or
+three real navigations, then check:
+
+1. The sweep plays and the new page appears **behind** the band (no flash of
+   unstyled or duplicate content).
+2. The browser console is clean — no glimm warnings, no WebGL errors.
+3. A Cmd/Ctrl-click still opens a new tab with no sweep in the original.
+4. External links and hash links behave as before.
+5. Browser back/forward behave as the installed version documents — in
+   current releases they are instant with no sweep, which is expected, not a
+   bug.
+
+If something is off, check Troubleshooting below before changing the wiring.
+
+## Step 6 — Hand back short and natural
+
+Keep the final reply brief and conversational — a few sentences, not a
+report. The user just watched a two-file change; don't recite this skill back
+at them with headers and checklists. Cover only:
+
+- what changed (usually `package.json` + the root layout) and the install
+  command if you couldn't run it,
+- the knob or two they'll actually touch (`palette`, `sweepMs` — props on
+  `GlimmProvider`),
+- the removal path in one line (delete the provider + `InterceptLinks`,
+  `npm uninstall glimm`) — reversibility makes it safe to try.
+
+Anything that needs flagging gets a sentence, not a section — "I couldn't run
+this offline, so click through a couple of pages after `npm install`" is
+enough. If the site is running, offering one alternate preset ("want to see
+it in `lagoon`?") beats describing palettes.
+
+## Troubleshooting
+
+| Symptom | Cause → fix |
+| ------- | ----------- |
+| `useGlimm must be used inside <GlimmProvider>` | Component imports from a different entry point than the provider, or the provider is in a nested layout. One entry point, root layout. |
+| No sweep, instant navigation, no errors | OS has reduced motion enabled, or no WebGL (headless browser, some VMs). This is the designed fallback, not a failure. |
+| Sweep plays but the page "jumps" at the end | An old glimm (<0.3.1) without View-Transition masking. `npm install glimm@latest`. |
+| Links to other origins sweep weirdly / break | They shouldn't be intercepted at all — check for a custom `shouldIntercept` that dropped the origin check. |
+| A sweep inside a card or chart ends on a hard edge | The canvas has `feather: 0`, or glimm predates `feather`. Leave `feather` at `'auto'`, or mask the canvas edges in CSS (see references/react-and-vanilla.md). |
+| Band too bright / washed out on dark theme | Set `brightness={0.85}` (or lower) on the provider. |
+| TypeScript can't find `glimm/next` | Older `moduleResolution`. Needs `"bundler"` or `"node16"`/`"nodenext"` in tsconfig — glimm ships ESM with `exports` maps only. |
+| Dev-only double navigation in React 18 StrictMode (non-Next) | Make sure the navigate callback is idempotent; the provider awaits it once per sweep, but app-level listeners added twice will fire twice. |

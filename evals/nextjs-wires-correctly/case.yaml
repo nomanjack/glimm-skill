@@ -1,0 +1,10 @@
+schema_version: "1.1"
+name: nextjs-wires-correctly
+expected_outcome: |
+  glimm is wired correctly for a Next.js App Router site: GlimmProvider
+  imported from 'glimm/next' mounted in the root layout wrapping the body
+  content, automatic link interception via InterceptLinks (or TransitionLink
+  on the nav links), glimm added as a dependency or a correct install command
+  given, no hallucinated API (only real exports and options), and no
+  hand-rolled reduced-motion or external-link guards duplicating what glimm
+  already does.

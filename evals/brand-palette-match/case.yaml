@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: brand-palette-match
+expected_outcome: |
+  The assistant reads the brand colors from globals.css (#D946EF fuchsia and
+  #FB923C orange) and builds a custom palette with accentChain from those
+  hexes (or picks a preset with explicit justification referencing the brand
+  hues), passes it to GlimmProvider via the palette prop, and wires the
+  provider correctly in the root layout from 'glimm/next' without invented
+  API.

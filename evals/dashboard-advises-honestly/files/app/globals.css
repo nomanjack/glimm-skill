@@ -1,0 +1,6 @@
+body { margin: 0; font-family: system-ui, sans-serif; }
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+aside { border-right: 1px solid #ddd; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+main { padding: 24px; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }

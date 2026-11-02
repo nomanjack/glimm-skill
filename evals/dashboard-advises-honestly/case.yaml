@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: dashboard-advises-honestly
+expected_outcome: |
+  The assistant notices this is a high-navigation admin console and gives
+  honest fit advice — flagging that a ~1s sweep on every sidebar click
+  becomes friction — before or while wiring it. Since the user clearly wants
+  it, it still delivers, but scoped: shorter timing (sweepMs well under the
+  1100ms default) and/or high-frequency sidebar links opted out with
+  data-glimm-skip, with correct root-layout wiring from 'glimm/next'.

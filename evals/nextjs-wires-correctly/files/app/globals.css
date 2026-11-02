@@ -1,0 +1,4 @@
+:root { color-scheme: light dark; }
+body { margin: 0; font-family: system-ui, sans-serif; }
+main { max-width: 720px; margin: 0 auto; padding: 48px 24px; }
+nav { display: flex; gap: 24px; padding: 24px; }
