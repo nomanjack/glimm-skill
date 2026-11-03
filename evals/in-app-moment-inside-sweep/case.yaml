@@ -9,4 +9,5 @@ expected_outcome: |
   result, including the Pro badge, changes with the sweep. No delay is added to
   line the change up with the band or to hold the button until the sweep ends.
   A failed response gets no sweep, the sweep is shorter than the 1100 ms default,
-  and no invented API is used.
+  and no invented API is used. The change stays limited to glimm, with no new
+  error messages, copy or other product changes.

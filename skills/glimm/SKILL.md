@@ -25,6 +25,13 @@ follows a running request all come from the site's own code. If the installed
 types have no API for an effect like this, tell the user it isn't available
 yet. Don't rebuild it with custom shaders.
 
+## Scope: implement glimm and nothing else
+
+Only add and wire glimm. Everything else about the project belongs to its owner,
+including copy, error messages, loading designs, layout, styling and app logic.
+Don't write or rewrite any of it, and don't add features around the sweep. If
+something nearby looks wrong, mention it in a sentence and leave it as it is.
+
 ## Step 1 — Fit check (before touching code)
 
 glimm is a statement, not a default. A sweep takes about a second of the
@@ -197,7 +204,8 @@ The animation follows the app, so the app never waits for the animation.
   to return from the callback, since it is the change being revealed.
 - **Only sweep on success.** Check the result before calling `sweep()`, including
   the response status, since `fetch` doesn't throw on a 500. A failed request gets
-  an error message and no sweep, because the sweep tells the person it worked.
+  no sweep, because the sweep tells the person it worked. What the app does about
+  a failure is the project's own decision, so leave that alone.
 - **Let a new action interrupt.** A second `sweep()` replaces the one playing, so
   don't queue sweeps or disable controls until one finishes. Where the browser
   supports View Transitions, the page doesn't take clicks while a sweep plays,
