@@ -67,6 +67,10 @@ Direction is cheap semantics. Common mappings that read instantly:
 - `rtl` — back / "previous" (e.g., on a back-to-index link)
 - `ttb` / `btt` — hierarchy shifts: descending into detail, surfacing to top
 
+For an in-app moment, let direction follow the action instead: the band travels
+away from whatever caused it, as described under "Size it to what changed" in
+SKILL.md.
+
 Per-link direction via `<TransitionLink sweep={{ direction: 'rtl' }}>`.
 Don't mix more than two directions on one site; it stops reading as meaning
 and starts reading as random.

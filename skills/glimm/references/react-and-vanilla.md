@@ -126,7 +126,7 @@ a band that stops dead at the border reads as clipped, not designed.
   `node_modules/glimm/dist/index.d.ts`): nothing to do, it defaults to
   `'auto'` and fades over 24 px inside containers. Pass a number to widen it
   for large boxes; never pass `0` for a contained canvas.
-- **Older glimm without `feather`:** mask the canvas in CSS instead:
+- **glimm without `feather` (0.3.1 and earlier):** mask the canvas in CSS instead:
 
   ```css
   .glimm-canvas {

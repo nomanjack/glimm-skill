@@ -1,0 +1,12 @@
+schema_version: "1.1"
+name: in-app-moment-inside-sweep
+expected_outcome: |
+  A plan upgrade in a Next.js app gets a glimm sweep without any route change.
+  GlimmProvider from 'glimm/next' is in the root layout, and the upgrade calls
+  sweep() from useGlimm. The button shows its loading state straight away, the
+  request is awaited before sweep() is called, and the state update that shows
+  the Pro plan runs inside the sweep callback. Everything that belongs to the
+  result, including the Pro badge, changes with the sweep. No delay is added to
+  line the change up with the band or to hold the button until the sweep ends.
+  A failed response gets no sweep, the sweep is shorter than the 1100 ms default,
+  and no invented API is used.

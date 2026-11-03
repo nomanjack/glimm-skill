@@ -1,6 +1,6 @@
 ---
 name: glimm
-description: Install, wire, and tune glimm — WebGL color-sweep page transitions — in a web project, with correct setup and honest advice about where it fits. Use whenever the user wants page transitions, route-change animations, navigation that feels more alive or polished, mentions glimm by name, or asks for "view transitions with some color" in a Next.js or React site, even if they never name a library. Also use when customizing an existing glimm install — changing palettes, matching brand colors, adjusting sweep timing or direction, or opting specific links out.
+description: Install, wire, and tune glimm — WebGL color-sweep page transitions — in a web project, with correct setup and honest advice about where it fits. Use whenever the user wants page transitions, route-change animations, navigation that feels more alive or polished, mentions glimm by name, or asks for "view transitions with some color" in a Next.js or React site, even if they never name a library. Also use when customizing an existing glimm install — changing palettes, matching brand colors, adjusting sweep timing or direction, or opting specific links out. Also use when a single in-app moment should get a sweep, such as a plan upgrade, a payment landing, a mode change or a generated result.
 ---
 
 # glimm — color-sweep page transitions
@@ -18,6 +18,12 @@ source of truth: confirm each export you use exists in its type definitions
 differently there, follow the installed version and its changelog on
 https://glimm.dev/changelog rather than the recipe. On a fresh install, prefer
 `npm install glimm@latest`.
+
+The demos on glimm.dev go further than the published package. The page drawing
+in towards the action, the page bending with the band, and the timing that
+follows a running request all come from the site's own code. If the installed
+types have no API for an effect like this, tell the user it isn't available
+yet. Don't rebuild it with custom shaders.
 
 ## Step 1 — Fit check (before touching code)
 
@@ -42,6 +48,11 @@ If the project is a poor fit, say so plainly and recommend against installing
 anyway, respect that, but scope it: shorter timing (`sweepMs: 650`,
 `outroMs: 150`), and sweep only major section changes while opting
 high-frequency links out with `data-glimm-skip` (Step 4).
+
+That verdict is about sweeping navigation. A product that is a poor fit for
+sweeps on every link can still earn one on a single moment, as long as it
+happens rarely and changes something the person cares about. In that case skip
+`InterceptLinks` and use the in-app recipe in Step 2.
 
 Accessibility and robustness are not reasons to hesitate: glimm respects
 `prefers-reduced-motion` (navigates instantly) and degrades to plain
@@ -118,6 +129,27 @@ router.push('/done', { palette: 'ember' })
 takes the click and the interceptor sees it as already handled, so nothing
 double-fires.
 
+### In-app moments
+
+A sweep doesn't need a route change. It can mark a state change on the current
+page, which is often the better use of it inside a product:
+
+```tsx
+'use client'
+import { useGlimm } from 'glimm/next'  // or 'glimm/react' outside Next
+
+const { sweep } = useGlimm()
+sweep(() => setPlan('pro'), { sweepMs: 800 })
+```
+
+A moment earns a sweep when it is rare and the person would want to notice it:
+a plan upgrade, a payment landing, a mode they switched on, a result they waited
+for, a teammate joining. Routine actions don't earn one, including saves, row
+edits, checkbox ticks and anything repeated many times in a session. An event
+nobody pressed for, such as a payment arriving, sweeps the same way, called from
+wherever the event is handled. Keep these sweeps shorter than a navigation, at
+around 650 to 900 ms.
+
 ### Other setups
 
 For **React without Next** (Vite + react-router, etc.), **Next Pages
@@ -147,13 +179,57 @@ when it resolves. A loading state on the pressed button can start right away,
 since it's feedback for the press. Anything that belongs to the result, such
 as a legend, count or badge, changes with the sweep.
 
+### The sweep never makes anyone wait
+
+The animation follows the app, so the app never waits for the animation.
+
+- **Answer the press straight away.** The pressed control shows its loading or
+  selected state immediately, outside the sweep. The result goes inside, and that
+  includes clearing the loading state, so the old page doesn't flip back to its
+  idle look just before the band reveals the new one.
+- **Never add a delay.** Don't use `setTimeout`, and don't await `done` or
+  `midpoint`, to line a change up with the band or to keep a control busy until
+  the sweep ends. `sweep()` applies the change
+  itself, and it does so as early as it can while keeping the change hidden.
+- **Keep slow work out of the callback.** The band can't start until the callback
+  has finished, and the page is held until then. Await the request first so the
+  page stays usable, then call `sweep()` with the result. A route change is fine
+  to return from the callback, since it is the change being revealed.
+- **Only sweep on success.** Check the result before calling `sweep()`, including
+  the response status, since `fetch` doesn't throw on a 500. A failed request gets
+  an error message and no sweep, because the sweep tells the person it worked.
+- **Let a new action interrupt.** A second `sweep()` replaces the one playing, so
+  don't queue sweeps or disable controls until one finishes. Where the browser
+  supports View Transitions, the page doesn't take clicks while a sweep plays,
+  which is another reason to keep in-app sweeps short and rare.
+
+### Size it to what changed, and start from the action
+
+The sweep should be about as big as the change, and it should appear to come
+from whatever caused it.
+
+- **The whole page or view changed:** use the provider's `sweep()`, which covers
+  the viewport. Pick the `direction` that travels away from the action, so a
+  composer at the bottom of the screen sweeps `btt` and a control in the top bar
+  sweeps `ttb`.
+- **One section or element changed:** play the sweep inside that element, using
+  the container recipe below. A full-page sweep for a change in one card makes a
+  small moment feel bigger than it is.
+
+On phones, primary actions usually sit near the bottom of the screen, so a
+`btt` sweep often reads best there even when the desktop layout uses another
+direction. Nothing about a sweep may depend on hover, so trigger it from the
+action itself and check it with touch.
+
 ### Sweeping inside a container
 
 When the sweep plays inside one element rather than the whole page (a card,
 a chart, a table), the band must fade out towards that box's edges — never
-let it end on a hard border. Current glimm does this by default (the
-shader's `feather: 'auto'`); on older versions mask the canvas edges in CSS.
-The recipe is in
+let it end on a hard border. Versions of glimm with a `feather` option on
+`createShader` do this by default. Version 0.3.1 and earlier don't have that
+option, so mask the canvas edges in CSS there, after checking the installed
+types. This recipe is a decorative sweep only, so make the change in `onMidpoint`
+rather than through the provider's masking. The recipe is in
 [references/react-and-vanilla.md](references/react-and-vanilla.md#sweeping-inside-a-container).
 
 ## Step 3 — Pick a palette with intent
@@ -212,15 +288,20 @@ Never hand back unverified. Start the dev server and click through two or
 three real navigations, then check:
 
 1. The sweep plays and the new page appears **behind** the band (no flash of
-   unstyled or duplicate content). Slow the animation down or step through a
-   recording if it's too fast to tell. Nothing that belongs to the result may
-   be visible before the band reaches it.
+   unstyled or duplicate content). It's often too fast to judge at full speed,
+   so temporarily set `sweepMs` to about 5000 and watch it again. Nothing that
+   belongs to the result may be visible before the band reaches it. Put
+   `sweepMs` back afterwards.
 2. The browser console is clean — no glimm warnings, no WebGL errors.
 3. A Cmd/Ctrl-click still opens a new tab with no sweep in the original.
 4. External links and hash links behave as before.
 5. Browser back/forward behave as the installed version documents — in
    current releases they are instant with no sweep, which is expected, not a
    bug.
+6. The pressed control responds immediately, with no pause before anything
+   happens, and pressing something else straight after a sweep starts still
+   works.
+7. It still reads well at phone width, with the direction you chose.
 
 If something is off, check Troubleshooting below before changing the wiring.
 
@@ -249,6 +330,8 @@ it in `lagoon`?") beats describing palettes.
 | `useGlimm must be used inside <GlimmProvider>` | Component imports from a different entry point than the provider, or the provider is in a nested layout. One entry point, root layout. |
 | No sweep, instant navigation, no errors | OS has reduced motion enabled, or no WebGL (headless browser, some VMs). This is the designed fallback, not a failure. |
 | New content appears, then the band plays over it | The state changed outside the sweep callback. Move the update into `sweep(() => ...)`. |
+| The page freezes, then the sweep plays late | Slow work is inside the sweep callback. Await the request first, then call `sweep()` with the result. |
+| User asks for the page to bend or draw inwards like the glimm.dev demos | Not in the published package unless the installed types show an API for it. Say so, and don't build a custom shader. |
 | Sweep plays but the page "jumps" at the end | An old glimm (<0.3.1) without View-Transition masking. `npm install glimm@latest`. |
 | Links to other origins sweep weirdly / break | They shouldn't be intercepted at all — check for a custom `shouldIntercept` that dropped the origin check. |
 | A sweep inside a card or chart ends on a hard edge | The canvas has `feather: 0`, or glimm predates `feather`. Leave `feather` at `'auto'`, or mask the canvas edges in CSS (see references/react-and-vanilla.md). |
