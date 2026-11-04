@@ -7,7 +7,7 @@ description: Install, wire, and tune glimm — WebGL color-sweep page transition
 
 glimm plays a band of WebGL color across the viewport during navigation: the
 outgoing page stays ahead of the band, the incoming page is revealed behind it
-(the iOS "name drop" feel, as a masked page transition). Framework-agnostic
+(a masked page transition). Framework-agnostic
 core with React and Next.js adapters. Zero runtime dependencies, MIT.
 
 This skill works with any glimm version. Before writing code, check which
@@ -19,18 +19,19 @@ differently there, follow the installed version and its changelog on
 https://glimm.dev/changelog rather than the recipe. On a fresh install, prefer
 `npm install glimm@latest`.
 
-The demos on glimm.dev go further than the published package. The page drawing
-in towards the action, the page bending with the band, and the timing that
-follows a running request all come from the site's own code. If the installed
-types have no API for an effect like this, tell the user it isn't available
-yet. Don't rebuild it with custom shaders.
+The page drawing in towards the action, the page bending with the band, and the
+timing that follows a running request all come from `GlimmScope`, added in glimm
+0.4. If the installed types don't have it, tell the user that upgrading with
+`npm install glimm@latest` brings it. Don't rebuild these effects with custom
+shaders.
 
 ## Scope: implement glimm and nothing else
 
 Only add and wire glimm. Everything else about the project belongs to its owner,
 including copy, error messages, loading designs, layout, styling and app logic.
-Don't write or rewrite any of it, and don't add features around the sweep. If
-something nearby looks wrong, mention it in a sentence and leave it as it is.
+Unless the user asked for it, don't write or rewrite any of it, and don't add
+features around the sweep. If something nearby looks wrong, mention it in a
+sentence and leave it as it is.
 
 ## Step 1 — Fit check (before touching code)
 
@@ -139,7 +140,15 @@ double-fires.
 ### In-app moments
 
 A sweep doesn't need a route change. It can mark a state change on the current
-page, which is often the better use of it inside a product:
+page, which is often the better use of it inside a product. There are two ways
+to do it, and `GlimmScope` is the better one wherever the installed version has it:
+
+- **`GlimmScope`** wraps one box, which can be a page, a section or a card. It
+  takes the app's real work, keeps the change behind the band, and moves the
+  content under the band where the browser can. See the next section.
+- **`sweep()`** from `useGlimm` covers the viewport and needs no change to the
+  page's structure. It's the choice for a version without `GlimmScope`, or when
+  the user only wants the band.
 
 ```tsx
 'use client'
@@ -154,8 +163,86 @@ a plan upgrade, a payment landing, a mode they switched on, a result they waited
 for, a teammate joining. Routine actions don't earn one, including saves, row
 edits, checkbox ticks and anything repeated many times in a session. An event
 nobody pressed for, such as a payment arriving, sweeps the same way, called from
-wherever the event is handled. Keep these sweeps shorter than a navigation, at
-around 650 to 900 ms.
+wherever the event is handled. Keep `sweep()` moments shorter than a navigation,
+at around 650 to 900 ms.
+
+### Moving the page with `GlimmScope`
+
+```tsx
+'use client'
+import { useRef, useState } from 'react'
+import { GlimmScope, type GlimmScopeHandle } from 'glimm/next' // or 'glimm/react'
+
+const scope = useRef<GlimmScopeHandle>(null)
+
+const upgrade = (event: React.MouseEvent) => {
+  const r = event.currentTarget.getBoundingClientRect()
+  setBusy(true) // answers the press, outside the scope's timing
+  scope.current?.play({
+    at: [r.left + r.width / 2, r.top + r.height / 2], // the page leans in towards the button
+    work: async () => {
+      const res = await fetch('/api/upgrade', { method: 'POST' })
+      if (!res.ok) throw new Error('Upgrade failed') // a rejection means no sweep
+    },
+    change: () => setPlan('pro'),  // runs as soon as the work is done, behind the band
+    onBurst: () => setBusy(false), // the band has broken away
+    onFail: () => setBusy(false),  // no sweep, and the page stays as it was
+  })
+}
+
+<GlimmScope ref={scope} curve={0.12} direction="ttb" sweepMs={2700} style={{ position: 'absolute', inset: 0 }}>
+  <Billing />
+</GlimmScope>
+```
+
+It doesn't need `GlimmProvider`, so a project that only wants one moment can use
+it alone. The rules for using it:
+
+- **Don't check for browser support.** Where HTML-in-Canvas is available, the
+  content breathes in towards the action and ripples as the band passes.
+  Everywhere else it's a plain sweep over the same box with the change still behind
+  the band. Reduced motion is handled too, so never write a guard or a second code
+  path, and never hold a feature back for a browser version. This is why it's
+  safe to use without asking.
+- **`work` holds the real work, and `change` holds the result.** Both go in
+  `play()`, so don't await the request first as you would with `sweep()`. The work
+  starts on the press, the page leans in while it runs, and however long it takes
+  the movement stays one breath. `change` receives the work's result. Make `work`
+  reject on failure, including a bad response status, since `fetch` doesn't throw
+  on a 500.
+- **The pressed control's busy state stays outside.** Set it before `play()`, clear
+  it in `onBurst` and `onFail`, and don't wait for `onLeave`.
+- **Pass `anticipate: true` only for what nobody pressed**, such as a payment
+  arriving. It gives the page time to lean in fully before the change, which would
+  be a wait for anyone who just asked for something. Without `work`, `change` runs
+  right on the press.
+- **A later `play()` interrupts**, so don't queue plays or disable controls until
+  one ends. `play()` also returns `{ fastForward, cancel }`.
+- **Give the box a size.** The scope clips to its box and fills it, so size it with
+  `style`, and fit it to the layout that's already there. The example's
+  `position: 'absolute', inset: 0` suits a view inside a positioned shell, and it
+  fills the viewport if there's no positioned ancestor, so don't use it on a page
+  in normal flow. In a flex shell, `flex: 1, minHeight: 0` fills the content area.
+  A section or card needs a set height, because where the page effect runs, the
+  content doesn't give the box its size and it would collapse to nothing. Content
+  that scrolls must scroll
+  inside the scope, not in the document around it. What renders outside it, such
+  as a portalled toast or dialog, doesn't move and isn't covered by the band.
+- **Lean in towards the action.** Pass `at` for whatever was pressed, since without
+  it the page leans in towards the `origin` prop, which is the top centre by default.
+  `at` is measured from the box's top-left in CSS px, so the example works because
+  its box starts at the top-left of the viewport. For any other box, subtract the
+  box's own position. For an action that never moves, or an event nobody pressed,
+  set `origin` as fractions of the box instead, such as `origin={[0.5, 1]}` for a
+  composer at the bottom.
+- **Let the band take its time across a whole page.** The 650 to 900 ms above is for
+  `sweep()`. A scope's band defaults to 1600 ms, and about 2700 ms suits a whole
+  page, since the band fades out well before it arrives at the far side.
+- **Keep to a handful per page, not one per row.** Each scope uses its own WebGL
+  contexts, and a page can only keep 16 alive.
+
+Only add the `usePageEffect()` reader switch if the user asks for a way to turn
+the effect off.
 
 ### Other setups
 
@@ -216,13 +303,19 @@ The animation follows the app, so the app never waits for the animation.
 The sweep should be about as big as the change, and it should appear to come
 from whatever caused it.
 
-- **The whole page or view changed:** use the provider's `sweep()`, which covers
-  the viewport. Pick the `direction` that travels away from the action, so a
-  composer at the bottom of the screen sweeps `btt` and a control in the top bar
-  sweeps `ttb`.
-- **One section or element changed:** play the sweep inside that element, using
-  the container recipe below. A full-page sweep for a change in one card makes a
-  small moment feel bigger than it is.
+- **The whole page or view changed:** wrap it in a scope with `curve={0.12}`, or
+  use the provider's `sweep()`, which covers the viewport.
+- **Something notable changed in one place:** use a scope around the page with
+  `curve={0.22} span={0.64} fade={[0.16, 0.64]}`, so the band stays near the change
+  and is gone by mid-page.
+- **One element changed:** put a scope around just that element with `curve={0.06}
+  bandTight={34}`. Without `GlimmScope`, use the container recipe below. A
+  full-page sweep for a change in one card makes a small moment feel bigger than
+  it is.
+
+Pick the `direction` that travels away from the action, so a composer at the bottom
+of the screen sweeps `btt` and a control in the top bar sweeps `ttb`. A scope can
+also go `ltr`, for an action in a sidebar, or `rtl`.
 
 On phones, primary actions usually sit near the bottom of the screen, so a
 `btt` sweep often reads best there even when the desktop layout uses another
@@ -231,6 +324,7 @@ action itself and check it with touch.
 
 ### Sweeping inside a container
 
+`GlimmScope` already does all of this, so this recipe is for a version without it.
 When the sweep plays inside one element rather than the whole page (a card,
 a chart, a table), the band must fade out towards that box's edges — never
 let it end on a hard border. Versions of glimm with a `feather` option on
@@ -248,7 +342,8 @@ whose hues live nearest to them:
 
 | Preset   | Hues                        | Reads as |
 | -------- | --------------------------- | -------- |
-| `prism`  | cyan → violet → magenta     | iridescent, techy — the default |
+| `spectrum` | one full hue cycle        | every color at once — the default from 0.4 |
+| `prism`  | cyan → violet → magenta     | iridescent, techy — the default before 0.4 |
 | `berry`  | red-pink → magenta          | warm, bold, editorial |
 | `lagoon` | blue → cyan → green         | cool, calm, natural |
 | `citrus` | green → yellow → orange     | energetic, playful |
@@ -310,6 +405,9 @@ three real navigations, then check:
    happens, and pressing something else straight after a sweep starts still
    works.
 7. It still reads well at phone width, with the direction you chose.
+8. For a `GlimmScope`, a failed request plays no sweep and leaves the page as it
+   was. If the browser you're checking in has no HTML-in-Canvas, a plain sweep is
+   the correct result, not a bug, and the page only moves in one that has it.
 
 If something is off, check Troubleshooting below before changing the wiring.
 
@@ -339,7 +437,9 @@ it in `lagoon`?") beats describing palettes.
 | No sweep, instant navigation, no errors | OS has reduced motion enabled, or no WebGL (headless browser, some VMs). This is the designed fallback, not a failure. |
 | New content appears, then the band plays over it | The state changed outside the sweep callback. Move the update into `sweep(() => ...)`. |
 | The page freezes, then the sweep plays late | Slow work is inside the sweep callback. Await the request first, then call `sweep()` with the result. |
-| User asks for the page to bend or draw inwards like the glimm.dev demos | Not in the published package unless the installed types show an API for it. Say so, and don't build a custom shader. |
+| User asks for the page to bend or draw inwards like the glimm.dev demos | Use `GlimmScope`. If the installed types don't have it, upgrade with `npm install glimm@latest`, and don't build a custom shader. |
+| A `GlimmScope` plays a sweep but the page doesn't move | The browser has no HTML-in-Canvas (Chrome 157 and later), which is the designed fallback, or the reader turned it off through `usePageEffect`. |
+| Nothing shows inside a `GlimmScope`, or the band runs far past the screen | The box has no useful size. Set its height through `style`, and let content scroll inside it. |
 | Sweep plays but the page "jumps" at the end | An old glimm (<0.3.1) without View-Transition masking. `npm install glimm@latest`. |
 | Links to other origins sweep weirdly / break | They shouldn't be intercepted at all — check for a custom `shouldIntercept` that dropped the origin check. |
 | A sweep inside a card or chart ends on a hard edge | The canvas has `feather: 0`, or glimm predates `feather`. Leave `feather` at `'auto'`, or mask the canvas edges in CSS (see references/react-and-vanilla.md). |

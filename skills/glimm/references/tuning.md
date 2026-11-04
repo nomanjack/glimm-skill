@@ -12,7 +12,7 @@ app-wide default), in the `sweep` prop of a `<TransitionLink>` /
 | `sweepMs`     | `1100`   | ms for the band to cross the viewport |
 | `outroMs`     | `220`    | ms for the post-reveal fade-out |
 | `midpoint`    | `0.56`   | 0–1 progress where navigation fires |
-| `palette`     | `prism`  | preset name or a custom `Palette` |
+| `palette`     | `spectrum` (`prism` before 0.4) | preset name or a custom `Palette` |
 | `direction`   | `ltr`    | `ltr` \| `rtl` \| `ttb` \| `btt` |
 | `easing`      | `ease`   | preset name or `(p) => number` |
 | `peakAlpha`   | `1`      | caps the band's peak opacity |

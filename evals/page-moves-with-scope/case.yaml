@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: page-moves-with-scope
+expected_outcome: |
+  The billing view is wrapped in a sized GlimmScope, and the upgrade calls its
+  play() with the request in work, which rejects on a failed response, and the
+  Pro state in change. The button's busy state is set on the press and cleared in
+  onBurst and onFail. There is no check for browser support, no custom shader, and
+  no added delay, and anticipate isn't used for this press. The change stays
+  limited to glimm.

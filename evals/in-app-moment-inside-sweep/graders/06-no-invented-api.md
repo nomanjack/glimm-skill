@@ -4,4 +4,4 @@ focus: trace
 weight: 1
 ---
 
-Only real glimm 0.3.x API is used (GlimmProvider, useGlimm and documented sweep options); nothing is invented, and no custom shader is written.
+Only real glimm API is used (GlimmProvider, useGlimm and documented sweep options, or GlimmScope with its documented props and play() options); nothing is invented, and no custom shader is written.

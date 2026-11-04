@@ -135,4 +135,4 @@ a band that stops dead at the border reads as clipped, not designed.
   ```
 
 Keep real content clear of the faded margin (padding at least the feather
-width), so the colour fades out over empty space rather than across text.
+width), so the color fades out over empty space rather than across text.

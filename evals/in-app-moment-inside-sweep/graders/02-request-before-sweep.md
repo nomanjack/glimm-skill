@@ -4,4 +4,4 @@ focus: trace
 weight: 1
 ---
 
-The fetch to /api/upgrade is awaited before sweep() is called. It is not placed inside the sweep callback, so the page stays usable during the request.
+The fetch to /api/upgrade stays out of the sweep. With sweep(), it is awaited before sweep() is called and is not inside the callback. With GlimmScope, it goes in work and not in change.
